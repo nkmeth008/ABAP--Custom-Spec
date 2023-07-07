@@ -1,0 +1,70 @@
+TABLES: zfu_iade_tablo , dfkkop.
+
+SELECTION-SCREEN BEGIN OF BLOCK bl1 WITH FRAME.
+  SELECT-OPTIONS muhatap  FOR dfkkop-gpart.
+  SELECT-OPTIONS sozlesme FOR dfkkop-vkont.
+  PARAMETERS: p_iade RADIOBUTTON GROUP gr3,
+              p_onay RADIOBUTTON GROUP gr3,
+              p_muh  RADIOBUTTON GROUP gr3.
+SELECTION-SCREEN END OF BLOCK bl1.
+
+DATA : gt_zlog TYPE STANDARD TABLE OF zfu_iade_tablo,
+       gs_zlog TYPE zfu_iade_tablo.
+
+DATA: go_alv  TYPE REF TO cl_gui_alv_grid,
+      go_cont TYPE REF TO cl_gui_custom_container.
+
+DATA: go_alv1  TYPE REF TO cl_gui_alv_grid,
+      go_cont1 TYPE REF TO cl_gui_custom_container.
+
+DATA: go_alv2  TYPE REF TO cl_gui_alv_grid,
+      go_cont2 TYPE REF TO cl_gui_custom_container.
+
+DATA: lt_rows TYPE lvc_t_row,
+      ls_row  TYPE lvc_s_row.
+
+TYPES: BEGIN OF gs_muh_onay,
+         vkont    TYPE vkont_kk,
+         gpart    TYPE gpart_kk,
+         mc_name2 TYPE bu_mcname2,
+         mc_name1 TYPE bu_mcname1,
+         bukrs    TYPE bukrs,
+         budat    TYPE budat,
+         opbel    TYPE opbel_kk,
+         betrh    TYPE betrh_kk,
+         iban     TYPE iban,
+         statu    TYPE char1,
+         message  TYPE char220,
+       END OF gs_muh_onay.
+
+
+*iade structure ve table tanımlama
+DATA: gt_iade TYPE TABLE OF zfu_log_st,
+      gs_iade TYPE zfu_log_st.
+*onay structure ve table tanımlama
+DATA: gt_onay TYPE TABLE OF zfu_onay_st,
+      gs_onay TYPE zfu_onay_st.
+*muhasebe structure ve table tanımlama
+DATA: gt_muhasebe TYPE TABLE OF zfu_muh_st,
+      gs_muhasebe TYPE zfu_muh_st.
+
+DATA: gt_muh TYPE TABLE OF gs_muh_onay,
+      gs_muh TYPE gs_muh_onay.
+
+* her bir tablo içi fieldcatalog ve layout tanımlama
+
+DATA : gt_fcat   TYPE lvc_t_fcat,
+       gs_fcat   TYPE lvc_s_fcat,
+       gs_layout TYPE LVC_S_layo.
+
+DATA : gt_fcat1   TYPE lvc_t_fcat,
+       gs_fcat1   TYPE lvc_s_fcat,
+       gs_layout1 TYPE LVC_S_layo.
+
+DATA : gt_fcat2   TYPE lvc_t_fcat,
+       gs_fcat2   TYPE lvc_s_fcat,
+       gs_layout2 TYPE LVC_S_layo.
+
+FIELD-SYMBOLS : <gfs_fc> TYPE lvc_s_fcat.
+
+DATA: wa_ztest TYPE zfu_iade_tablo.

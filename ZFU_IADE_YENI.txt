@@ -1,0 +1,28 @@
+*&---------------------------------------------------------------------*
+*& Report ZFU_IADE_YENI
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT ZFU_IADE_YENI.
+
+
+INCLUDE ZFU_PROGRAM_TOP.
+INCLUDE ZFU_PROGRAM_FRM.
+INCLUDE ZFU_PROGRAM_PAI.
+INCLUDE ZFU_PROGRAM_PBO.
+INCLUDE ZFU_PROGRAM_CLS.
+
+
+START-OF-SELECTION.
+
+ CASE 'X'.
+    WHEN p_iade.
+      PERFORM iade_ekrani.
+      call SCREEN 0100.
+    WHEN p_onay.
+      PERFORM onay_ekrani.
+      call SCREEN 0200.
+    WHEN p_muh.
+      PERFORM muhasebe_ekrani.
+      call SCREEN 0300.
+  ENDCASE.

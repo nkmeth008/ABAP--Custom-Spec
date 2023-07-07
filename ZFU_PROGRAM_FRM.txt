@@ -1,0 +1,449 @@
+FORM check_iban.
+IF go_alv IS NOT INITIAL.
+
+CALL METHOD go_alv->get_selected_rows
+   IMPORTING
+      et_index_rows = lt_rows[].
+*        et_row_no     =
+
+LOOP AT lt_rows INTO ls_row.
+ READ TABLE gt_iade INTO gs_iade INDEX ls_row-index.
+*ENDLOOP.
+
+CALL FUNCTION 'CHECK_IBAN'
+  EXPORTING
+    i_iban                   = gs_iade-gv_iban
+    i_mod97_check_only       = 'X'
+ EXCEPTIONS
+   not_valid                = 1
+   OTHERS                   = 2
+          .
+IF sy-subrc EQ 0.
+    gs_iade-gv_msg = 'İşlem Başarılı'.
+    MODIFY gt_iade INDEX ls_row-index FROM gs_iade.
+  ELSEIF sy-subrc EQ 1.
+    gs_iade-gv_msg = 'Hatalı IBAN'.
+    MODIFY gt_iade INDEX ls_row-index FROM gs_iade.
+  ENDIF.
+ENDLOOP.
+CALL METHOD go_alv->refresh_table_display.
+*LOOP AT gt_iade INTO gs_iade WHERE check EQ abap_true.
+        IF gs_iade-gv_msg EQ 'İşlem Başarılı'.
+          gs_zlog-opbel = gs_iade-opbel.
+          gs_zlog-vkont = gs_iade-vkont.
+          gs_zlog-gpart = gs_iade-gpart.
+          gs_zlog-MC_NAME1 = gs_iade-mc_name2.
+          gs_zlog-MC_NAME2 = gs_iade-mc_name1.
+          gs_zlog-bukrs = gs_iade-bukrs.
+          gs_zlog-budat = gs_iade-budat.
+          gs_zlog-BETRH = gs_iade-betrh.
+          gs_zlog-iban  = gs_iade-gv_iban.
+          gs_zlog-statu = '1'.
+          MODIFY ZFU_IADE_TABLO FROM gs_zlog.
+        ENDIF.
+*      ENDLOOP.
+ENDIF.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form iade_bedelleri
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM iade_ekrani.
+   SELECT
+          DFKKOP~vkont
+          DFKKOP~gpart
+          BUT000~mc_name2
+          BUT000~mc_name1
+          DFKKOP~bukrs
+          DFKKOP~opbel
+          DFKKOP~budat
+          DFKKOP~betrh
+    FROM  but000
+         INNER JOIN dfkkop ON but000~partner  EQ DFKKOP~gpart
+    INTO CORRESPONDING FIELDS OF TABLE gt_iade
+     WHERE DFKKOP~augst  = ' '
+      AND NOT DFKKOP~augrd = 5
+      AND DFKKOP~hvorg = '0060'
+      AND DFKKOP~tvorg = '0010'.
+
+
+
+     CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+ EXPORTING
+   i_structure_name             = 'ZFU_LOG_ST'
+
+  CHANGING
+    ct_fieldcat                  = gt_fcat.
+* EXCEPTIONS
+*   INCONSISTENT_INTERFACE       = 1
+*   PROGRAM_ERROR                = 2
+*   OTHERS                       = 3
+
+ READ TABLE gt_fcat ASSIGNING <gfs_fc> WITH KEY fieldname = 'GV_IBAN'.
+  IF sy-subrc EQ 0.
+
+    <gfs_fc>-edit = abap_true.
+
+
+  ENDIF.
+
+LOOP AT gt_fcat ASSIGNING <gfs_fc>.
+  IF  <gfs_fc>-fieldname eq 'gv_msg'.
+  <gfs_fc>-scrtext_s = 'MESAJ'.
+  <gfs_fc>-scrtext_m = 'MESAJ'.
+  <gfs_fc>-scrtext_l = 'MESAJ'.
+ENDIF.
+ENDLOOP.
+
+
+CLEAR : gs_layout.
+  gs_layout-cwidth_opt = 'X'.
+  gs_layout-zebra      = abap_true.
+
+
+
+   CREATE OBJECT go_alv
+  EXPORTING
+    i_parent                =      cl_gui_container=>screen0.
+
+
+CALL METHOD go_alv->set_table_for_first_display
+ EXPORTING
+    i_structure_name              =            'ZFU_LOG_ST'
+    is_layout                     =                  gs_layout
+  CHANGING
+  it_outtab                     =                   gt_iade
+   it_fieldcatalog               =                    gt_fcat
+  .
+
+
+***********************************
+CALL METHOD go_alv->register_edit_event
+  EXPORTING
+    i_event_id =  cl_gui_alv_grid=>mc_evt_enter.
+
+CALL METHOD go_alv->refresh_table_display.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form onayda_bekleyen
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM onay_ekrani .
+  SELECT ZFU_IADE_TABLO~opbel,
+         ZFU_IADE_TABLO~vkont,
+         ZFU_IADE_TABLO~gpart,
+         ZFU_IADE_TABLO~MC_NAME1,
+         ZFU_IADE_TABLO~MC_NAME2,
+         ZFU_IADE_TABLO~bukrs,
+         ZFU_IADE_TABLO~budat,
+         ZFU_IADE_TABLO~BETRH,
+         ZFU_IADE_TABLO~iban
+       FROM ZFU_IADE_TABLO
+       INTO CORRESPONDING FIELDS OF TABLE @gt_onay
+    WHERE ZFU_IADE_TABLO~STATU EQ '1'.
+
+
+     CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+ EXPORTING
+   i_structure_name             = 'ZFU_ONAY_ST'
+
+  CHANGING
+    ct_fieldcat                  = gt_fcat1.
+* EXCEPTIONS
+*   INCONSISTENT_INTERFACE       = 1
+*   PROGRAM_ERROR                = 2
+*   OTHERS                       = 3
+
+CLEAR : gs_layout1.
+  gs_layout-cwidth_opt = 'X'.
+  gs_layout-zebra      = abap_true.
+
+   CREATE OBJECT go_alv1
+  EXPORTING
+    i_parent                =      go_cont1 .
+
+
+CALL METHOD go_alv1->set_table_for_first_display
+ EXPORTING
+    i_structure_name              =            'ZFU_ONAY_ST'
+    is_layout                     =                  gs_layout1
+  CHANGING
+  it_outtab                     =                   gt_onay
+   it_fieldcatalog               =                    gt_fcat1
+  .
+
+CALL METHOD go_alv1->refresh_table_display.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form muhasebe_onayı
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM muhasebe_ekrani.
+  SELECT ZFU_IADE_TABLO~opbel,
+         ZFU_IADE_TABLO~vkont,
+         ZFU_IADE_TABLO~gpart,
+         ZFU_IADE_TABLO~MC_NAME1,
+         ZFU_IADE_TABLO~MC_NAME2,
+         ZFU_IADE_TABLO~bukrs,
+         ZFU_IADE_TABLO~budat,
+         ZFU_IADE_TABLO~BETRH,
+         ZFU_IADE_TABLO~iban,
+         ZFU_IADE_TABLO~STATU
+       FROM ZFU_IADE_TABLO
+       INTO CORRESPONDING FIELDS OF TABLE @gt_muh
+    WHERE ZFU_IADE_TABLO~STATU EQ '2'
+    or ZFU_IADE_TABLO~STATU EQ '3'.
+************
+
+
+
+
+************
+     CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+ EXPORTING
+   i_structure_name             = 'ZFU_MUH_ST'
+
+  CHANGING
+    ct_fieldcat                  = gt_fcat2.
+* EXCEPTIONS
+*   INCONSISTENT_INTERFACE       = 1
+*   PROGRAM_ERROR                = 2
+*   OTHERS                       = 3
+
+LOOP AT gt_fcat ASSIGNING <gfs_fc>.
+  IF  <gfs_fc>-fieldname eq 'gv_msg'.
+  <gfs_fc>-scrtext_s = 'HATA MESAJI'.
+  <gfs_fc>-scrtext_m = 'HATA MESAJI'.
+  <gfs_fc>-scrtext_l = 'HATA MESAJI'.
+ENDIF.
+ENDLOOP.
+
+CLEAR : gs_layout2.
+  gs_layout2-cwidth_opt = 'X'.
+  gs_layout2-zebra      = abap_true.
+
+   CREATE OBJECT go_alv2
+  EXPORTING
+    i_parent                =      go_cont2 .
+
+
+CALL METHOD go_alv2->set_table_for_first_display
+ EXPORTING
+    i_structure_name              =            'ZFU_MUH_ST'
+    is_layout                     =                  gs_layout2
+  CHANGING
+  it_outtab                     =                   gt_muh
+   it_fieldcatalog               =                    gt_fcat2
+  .
+
+CALL METHOD go_alv2->refresh_table_display.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form onayla
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM onayla.
+
+CALL METHOD go_alv1->get_selected_rows
+   IMPORTING
+      et_index_rows = lt_rows[].
+*        et_row_no     =
+
+*LOOP AT lt_rows INTO ls_row.
+
+     LOOP AT lt_rows INTO ls_row.
+          READ TABLE gt_onay INTO gs_onay INDEX ls_row-index.
+          gs_zlog-opbel = gs_onay-opbel.
+          gs_zlog-vkont = gs_onay-vkont.
+          gs_zlog-gpart = gs_onay-gpart.
+          gs_zlog-MC_NAME1 = gs_onay-mc_name2.
+          gs_zlog-MC_NAME2 = gs_onay-mc_name1.
+          gs_zlog-bukrs = gs_onay-bukrs.
+          gs_zlog-budat = gs_onay-budat.
+          gs_zlog-BETRH = gs_onay-betrh.
+          gs_zlog-iban  = gs_onay-iban.
+           gs_zlog-statu = '2'.
+          MODIFY ZFU_IADE_TABLO FROM gs_zlog.
+**       ENDLOOP.
+ ENDLOOP.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form odeme
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM odeme .
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form listele
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM listele.
+
+DATA : ls_modi TYPE lvc_s_modi,
+       ls_stable TYPE lvc_s_stbl.
+
+DATA : lt_excel TYPE STANDARD TABLE OF gs_muh_onay.
+
+DATA:   lv_filename TYPE string,
+        lv_path TYPE string,
+        lv_fullpath TYPE string,
+        lv_result TYPE i,
+        lv_default_fname TYPE string,
+        lv_fname TYPE string.
+
+  CALL METHOD cl_gui_frontend_services=>file_save_dialog
+    EXPORTING
+      window_title      = 'File Directory'
+      default_extension = 'XLS'
+      initial_directory = 'D:\'
+    CHANGING
+      filename          = lv_filename
+      path              = lv_path
+      fullpath          = lv_fullpath
+      user_action       = lv_result.
+
+
+ CALL METHOD go_alv2->get_selected_rows
+    IMPORTING
+      et_index_rows = lt_rows[].
+*        et_row_no     =
+      .
+
+LOOP AT lt_rows INTO ls_row.
+
+   READ TABLE gt_muh INTO gs_muh INDEX ls_row-index.
+    APPEND gs_muh TO lt_excel.
+    CALL FUNCTION 'GUI_DOWNLOAD'
+      EXPORTING
+        filename                = lv_filename
+        filetype                = 'ASC'
+        write_field_separator   = 'X'
+      TABLES
+        data_tab                = lt_excel
+      EXCEPTIONS
+        file_write_error        = 1
+        no_batch                = 2
+        gui_refuse_filetransfer = 3
+        invalid_type            = 4
+        no_authority            = 5
+        unknown_error           = 6
+        header_not_allowed      = 7
+        separator_not_allowed   = 8
+        filesize_not_allowed    = 9
+        header_too_long         = 10
+        dp_error_create         = 11
+        dp_error_send           = 12
+        dp_error_write          = 13
+        unknown_dp_error        = 14
+        access_denied           = 15
+        dp_out_of_memory        = 16
+        disk_full               = 17
+        dp_timeout              = 18
+        file_not_found          = 19
+        dataprovider_exception  = 20
+        control_flush_error     = 21
+        OTHERS                  = 22.
+    IF sy-subrc <> 0.
+      MESSAGE ID  sy-msgid TYPE sy-msgty NUMBER sy-msgno
+                           WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+*    ELSE.
+*      MESSAGE ID i398(00) WITH  'Dosya aktarıldı'.
+    ENDIF.
+
+ MOVE-CORRESPONDING gs_muh TO wa_ztest.
+        wa_ztest-statu = '3'.
+        MODIFY  ZFU_IADE_TABLO FROM wa_ztest.
+ENDLOOP.
+
+LOOP AT lt_rows INTO ls_row.
+ READ TABLE gt_muh INTO gs_muh INDEX ls_row-index.
+
+    gs_muh-statu = '3'.
+    MODIFY gt_muh INDEX ls_row-index FROM gs_muh.
+
+ENDLOOP.
+
+
+CALL METHOD go_alv2->refresh_table_display.
+
+ENDFORM.
+
+
+FORM fonk_odeme.
+
+DATA : lv_mes TYPE bapiret2,
+       wa_opbel TYPE dfkkop.
+
+ CALL METHOD go_alv2->get_selected_rows
+    IMPORTING
+      et_index_rows = lt_rows[].
+*        et_row_no     =
+
+
+LOOP AT lt_rows INTO ls_row.
+
+READ TABLE gt_muh INTO gs_muh INDEX ls_row-index.
+
+IF lv_mes IS INITIAL.
+
+IF gs_muh-statu = '3'.
+
+CALL FUNCTION 'ZEX_KA_OBPEL_PAY'
+  EXPORTING
+    i_opbel        = gs_muh-opbel
+ IMPORTING
+   e_return       = lv_mes
+          .
+MOVE-CORRESPONDING gs_muh TO wa_ztest.
+  wa_ztest-statu = '4'.
+  MODIFY ZFU_IADE_TABLO FROM wa_ztest.
+  gs_muh-statu = '4'.
+  MODIFY gt_muh INDEX ls_row-index FROM gs_muh.
+ELSEIF gs_muh-statu = '2'.
+  MESSAGE 'Önce listeleme işlemi yapınız!' TYPE 'W'.
+  gs_muh-message = 'Hatalı İşlem'.
+
+ELSE.
+  gs_muh-message = lv_mes.
+  MODIFY gt_muh FROM gs_muh.
+  MESSAGE 'İşlem Başarılı!' TYPE 'W'.
+  gs_muh-message = 'İşlem Başarılı'.
+ENDIF.
+ENDIF.
+ENDLOOP.
+
+CALL METHOD go_alv2->refresh_table_display
+
+  .
+
+
+ENDFORM.
